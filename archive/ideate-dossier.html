@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Direction 2 · 档案卷宗台</title>
+<style>
+  @font-face { font-family:'Terminal';   src:url('../fonts/Terminal.ttf'); }
+  @font-face { font-family:'Millennium'; src:url('../fonts/Millennium.ttf'); }
+  @font-face { font-family:'MillBold';   src:url('../fonts/Millennium-Bold.ttf'); }
+  @font-face { font-family:'MSSans';     src:url('../fonts/MSSansSerif.ttf'); }
+
+  :root {
+    --bg:#0b0b0c; --desk:#131315; --line:#2a2a2d; --steel:#55555b;
+    --paper:#e9e4d6; --paper2:#ddd7c6; --ink:#1a1a1a; --gray:#8b8b90;
+    --red:#ff2b2b; --magenta:#ff2b78; --faint:#6d6d72;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    background:var(--bg); color:var(--paper); font-family:'MSSans','Courier New',monospace;
+    overflow:hidden; user-select:none; -webkit-user-select:none;
+  }
+
+  .grain {
+    position:fixed; inset:0; z-index:900; pointer-events:none; opacity:.16;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scanlines {
+    position:fixed; inset:0; z-index:901; pointer-events:none; opacity:.38;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+  }
+  .vignette {
+    position:fixed; inset:0; z-index:902; pointer-events:none;
+    background:radial-gradient(130% 100% at 50% 45%, transparent 55%, rgba(0,0,0,.6) 100%);
+  }
+
+  /* ---------- 顶栏 ---------- */
+  #top {
+    position:absolute; top:0; left:0; right:0; height:44px; z-index:10;
+    display:flex; align-items:center; padding:0 20px; gap:18px;
+    background:linear-gradient(#1b1b1e,#121214); border-bottom:1px solid var(--line);
+    font-family:'Terminal','Courier New',monospace; font-size:12px; letter-spacing:1px; color:var(--gray);
+  }
+  #top .brand { color:var(--paper); letter-spacing:2px; }
+  #top .brand b { color:var(--red); }
+  #top .spacer { flex:1; }
+  #top .clear { padding:2px 10px; border:1px solid var(--red); color:var(--red); letter-spacing:2px; font-size:10px; }
+  #top .tabs { display:flex; gap:4px; }
+  #top .tabs span { padding:4px 12px; border:1px solid var(--line); color:var(--faint); cursor:pointer; font-size:11px; }
+  #top .tabs span.on { color:var(--paper); border-color:var(--steel); background:#1c1c1f; }
+
+  /* ---------- 主体：左侧索引 + 中央卷宗 ---------- */
+  #main { position:absolute; inset:44px 0 0 0; display:flex; }
+
+  /* 左侧档案索引 */
+  #index {
+    width:220px; flex-shrink:0; border-right:1px solid var(--line);
+    background:linear-gradient(#151517,#101011); display:flex; flex-direction:column;
+  }
+  #index .head { padding:14px 16px 10px; font-family:'Terminal',monospace; font-size:10px; color:var(--faint); letter-spacing:2px; border-bottom:1px solid var(--line); }
+  #index .item {
+    padding:12px 16px; border-bottom:1px solid #1d1d20; cursor:pointer;
+    display:flex; flex-direction:column; gap:4px; position:relative;
+  }
+  #index .item:hover { background:#18181b; }
+  #index .item.active { background:#1c1c1f; }
+  #index .item.active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--red); box-shadow:0 0 10px var(--red); }
+  #index .item .no { font-family:'Terminal',monospace; font-size:12px; color:var(--paper); letter-spacing:1px; }
+  #index .item .sub { font-family:'Millennium','SimSun',serif; font-size:12px; color:var(--faint); }
+  #index .item .badge { font-family:'Terminal',monospace; font-size:8px; color:var(--red); letter-spacing:1px; }
+
+  /* 中央卷宗纸面 */
+  #paper-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:36px; position:relative; }
+  /* 桌面投光 */
+  #paper-wrap::before { content:''; position:absolute; inset:0;
+    background:radial-gradient(70% 60% at 50% 46%, rgba(255,248,230,.05), transparent 60%); }
+
+  #paper {
+    position:relative; width:min(58vw, 760px); height:min(72vh, 620px);
+    background:linear-gradient(178deg, var(--paper), var(--paper2));
+    color:var(--ink); font-family:'Millennium','SimSun',serif;
+    box-shadow:0 30px 60px rgba(0,0,0,.7), 0 0 0 1px #000;
+    padding:38px 46px; transform:rotate(-.4deg);
+  }
+  /* 纸张纤维 + 折痕 */
+  #paper::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 26px, rgba(0,0,0,.035) 26px 27px),
+      linear-gradient(90deg, transparent 49.8%, rgba(0,0,0,.04) 50%, transparent 50.2%);
+  }
+  /* 订书钉 */
+  #paper .staple { position:absolute; left:30px; top:-4px; width:22px; height:10px;
+    background:linear-gradient(#9a9aa0,#5c5c62); border-radius:2px; }
+
+  /* 戳章 */
+  .stamp {
+    position:absolute; right:34px; top:120px; transform:rotate(-12deg);
+    font-family:'MillBold'; font-size:30px; letter-spacing:3px; color:var(--red);
+    border:3px solid var(--red); padding:6px 14px; opacity:.82; mix-blend-mode:multiply;
+  }
+  .stamp.small { right:auto; left:40px; top:auto; bottom:64px; font-size:18px; transform:rotate(8deg); color:var(--magenta); border-color:var(--magenta); }
+
+  #paper .doc-head { border-bottom:2px solid var(--ink); padding-bottom:10px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:baseline; }
+  #paper .doc-head .t { font-family:'MillBold'; font-size:22px; letter-spacing:1px; }
+  #paper .doc-head .meta { font-family:'Terminal',monospace; font-size:10px; color:#444; }
+  #paper .doc-body { font-size:15.5px; line-height:2.05; }
+  #paper .redact { background:#0d0d0d; color:transparent; padding:0 7px; }
+  #paper .redact.long { display:inline-block; width:150px; }
+  #paper .margin-note {
+    position:absolute; right:-20px; top:38%; font-family:'Millennium',serif; font-size:12px;
+    color:#7a4a4a; writing-mode:vertical-rl; letter-spacing:2px; transform:rotate(2deg);
+  }
+  /* 手写批注 */
+  #paper .handwrite { font-family:'Millennium',serif; color:#5c2a2a; font-style:italic; font-size:13px; }
+
+  #paper .photos { display:flex; gap:16px; margin:18px 0; }
+  #paper .ph {
+    flex:1; height:150px; position:relative; border:1px solid var(--ink); overflow:hidden;
+    background:radial-gradient(circle at 50% 40%, #c6c2b6 0 10%, #7c7a72 35%, #2c2c2e 70%, #111 100%);
+  }
+  #paper .ph .ht { position:absolute; inset:0; opacity:.45; background-image:radial-gradient(circle, rgba(0,0,0,.7) 1px, transparent 1.4px); background-size:4px 4px; }
+  #paper .ph .bar { position:absolute; background:#0d0d0d; }
+  #paper .ph .cap { position:absolute; left:6px; bottom:6px; font-family:'Terminal',monospace; font-size:9px; color:var(--paper); background:rgba(0,0,0,.65); padding:2px 6px; letter-spacing:1px; }
+
+  /* 传真噪点条（横贯纸面下方） */
+  #fax-band {
+    position:absolute; left:-30px; right:-30px; bottom:88px; height:34px; z-index:2;
+    background:repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 2px, transparent 2px 5px);
+    border-top:1px dashed rgba(0,0,0,.2); border-bottom:1px dashed rgba(0,0,0,.2);
+    mix-blend-mode:multiply;
+  }
+
+  #paper .doc-foot { position:absolute; left:46px; right:46px; bottom:30px; display:flex; justify-content:space-between; font-family:'Terminal',monospace; font-size:9px; color:#444; letter-spacing:1px; }
+
+  /* ---------- 底部证据条 ---------- */
+  #exhibit {
+    position:absolute; left:0; right:0; bottom:0; height:76px; z-index:9;
+    background:linear-gradient(#141416,#0d0d0e); border-top:1px solid var(--line);
+    display:flex; align-items:center; padding:0 16px; gap:12px;
+  }
+  #exhibit .lbl { font-family:'Terminal',monospace; font-size:10px; color:var(--faint); letter-spacing:2px; writing-mode:vertical-rl; transform:rotate(180deg); }
+  #exhibit .ev {
+    width:52px; height:52px; border:1px solid #000; background:#1c1c1f; position:relative; overflow:hidden;
+  }
+  #exhibit .ev::after { content:''; position:absolute; inset:4px; background:#2a2a2e; }
+  #exhibit .ev.on { outline:2px solid var(--red); box-shadow:0 0 12px rgba(255,43,43,.55); }
+  #exhibit .ev.on::after { background:#4a3a3a; }
+  #exhibit .ev .n { position:absolute; bottom:0; left:0; right:0; text-align:center; font-family:'Terminal',monospace; font-size:8px; color:var(--paper); background:rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+  <div class="grain"></div><div class="scanlines"></div><div class="vignette"></div>
+
+  <div id="top">
+    <span class="brand">情报管制局 <b>·</b> 档案处</span>
+    <span>MINISTRY OF INFORMATION — ARCHIVES</span>
+    <span class="spacer"></span>
+    <div class="tabs"><span class="on">档案</span><span>索引</span><span>传输</span></div>
+    <span class="clear">TOP SECRET</span>
+    <span id="clock" style="letter-spacing:2px;">--:--:--</span>
+  </div>
+
+  <div id="main">
+    <div id="index">
+      <div class="head">CASE INDEX · 档案索引</div>
+      <div class="item active">
+        <span class="no">7712-B</span>
+        <span class="sub">北区车站失踪案</span>
+        <span class="badge">● 进行中</span>
+      </div>
+      <div class="item"><span class="no">7708-A</span><span class="sub">审查员失联记录</span></div>
+      <div class="item"><span class="no">7699-D</span><span class="sub">匿名举报：档案篡改</span></div>
+      <div class="item"><span class="no">7681-C</span><span class="sub">微缩胶片遗失清单</span></div>
+      <div class="item"><span class="no">7655-F</span><span class="sub">边境信号截获</span></div>
+      <div class="item"><span class="no">7633-A</span><span class="sub">旧城拆除影像</span></div>
+    </div>
+
+    <div id="paper-wrap">
+      <div id="paper">
+        <div class="staple"></div>
+        <div class="stamp">封存</div>
+        <div class="stamp small">已审查</div>
+        <div class="margin-note">此处被涂改过 —— 谁干的？</div>
+
+        <div class="doc-head">
+          <span class="t">案件卷宗 · CASE FILE 7712-B</span>
+          <span class="meta">1977.03.14 / 卷 2</span>
+        </div>
+        <div class="doc-body">
+          调查对象 <span class="redact long"></span>，代号「<span class="redact">■■■</span>」，最后一次确认出现于北区
+          <span class="redact">███</span> 车站，携带一件<span class="redact long"></span>。<br>
+          目击者称其于 23:40 登上 <span class="redact">███</span> 号列车。此后再无踪迹。
+          <span class="handwrite">—— 但监控带里那 40 秒被人剪掉了。</span>
+        </div>
+
+        <div class="photos">
+          <div class="ph"><div class="ht"></div><div class="bar" style="left:0;top:0;bottom:0;width:40%;"></div><div class="cap">SUBJ. #7712-B</div></div>
+          <div class="ph"><div class="ht"></div><div class="bar" style="right:0;top:0;height:52%;width:100%;"></div><div class="cap">EXHIBIT 02 · CAM 04</div></div>
+          <div class="ph"><div class="ht"></div><div class="bar" style="left:0;bottom:0;height:30%;width:100%;"></div><div class="cap">EXHIBIT 03</div></div>
+        </div>
+
+        <div id="fax-band"></div>
+        <div class="doc-foot"><span>PAGE 2 / 4</span><span>CLASSIFICATION: TOP SECRET</span><span>REF: D-7731</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="exhibit">
+    <span class="lbl">EXHIBITS</span>
+    <div class="ev on"><span class="n">E-01</span></div>
+    <div class="ev"><span class="n">E-02</span></div>
+    <div class="ev"><span class="n">E-03</span></div>
+    <div class="ev"><span class="n">E-04</span></div>
+    <div class="ev"><span class="n">E-05</span></div>
+    <div class="ev"><span class="n">E-06</span></div>
+    <div class="ev"><span class="n">E-07</span></div>
+  </div>
+
+<script>
+  function tick(){ const d=new Date(); const p=n=>String(n).padStart(2,'0');
+    document.getElementById('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+  setInterval(tick,1000); tick();
+</script>
+</body>
+</html>

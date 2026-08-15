@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Direction 1 · 微缩胶片投影台</title>
+<style>
+  @font-face { font-family:'Terminal';   src:url('../fonts/Terminal.ttf'); }
+  @font-face { font-family:'Millennium'; src:url('../fonts/Millennium.ttf'); }
+  @font-face { font-family:'MillBold';   src:url('../fonts/Millennium-Bold.ttf'); }
+  @font-face { font-family:'MSSans';     src:url('../fonts/MSSansSerif.ttf'); }
+
+  :root {
+    --bg:#0a0a0b; --panel:#141416; --panel2:#1c1c1f; --line:#2a2a2d;
+    --steel:#4a4a50; --paper:#e7e3d8; --ink:#161616; --gray:#8b8b90;
+    --red:#ff2b2b; --magenta:#ff2b78; --dim:#5a5a5f;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    background:var(--bg); color:var(--paper); font-family:'MSSans','Courier New',monospace;
+    overflow:hidden; user-select:none; -webkit-user-select:none;
+    display:flex; flex-direction:column;
+  }
+
+  .grain {
+    position:fixed; inset:0; z-index:900; pointer-events:none; opacity:.20;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scanlines {
+    position:fixed; inset:0; z-index:901; pointer-events:none; opacity:.5;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+  }
+  .vignette {
+    position:fixed; inset:0; z-index:902; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 48%, transparent 52%, rgba(0,0,0,.62) 100%);
+  }
+
+  /* ---------- 顶栏 ---------- */
+  #top {
+    height:38px; flex-shrink:0; z-index:10;
+    display:flex; align-items:center; padding:0 18px; gap:16px;
+    background:linear-gradient(#1a1a1d, #121214);
+    border-bottom:1px solid var(--line);
+    font-family:'Terminal','Courier New',monospace; font-size:12px; letter-spacing:1px; color:var(--gray);
+  }
+  #top .brand { color:var(--paper); font-weight:bold; }
+  #top .brand b { color:var(--red); }
+  #top .spacer { flex:1; }
+  #top .stat { display:flex; align-items:center; gap:6px; }
+  #top .led { width:8px; height:8px; border-radius:50%; background:var(--red); box-shadow:0 0 8px var(--red); animation:blink 1.6s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.25; } }
+
+  /* ---------- 舞台（投影屏 + 机器底座） ---------- */
+  #stage {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:20px; padding:16px 24px; position:relative; min-height:0;
+  }
+  #screen {
+    position:relative; width:min(60vw, 800px); aspect-ratio:4/3; max-height:100%;
+    background:var(--ink); box-shadow:0 0 0 10px #18181b, 0 0 0 12px #000, 0 40px 80px rgba(0,0,0,.8);
+    overflow:hidden; flex-shrink:1;
+  }
+  #screen::before {
+    content:''; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
+    width:150%; height:60px; background:linear-gradient(to bottom, rgba(255,255,255,.10), transparent);
+    clip-path:polygon(42% 0, 58% 0, 78% 100%, 22% 100%);
+  }
+  .sprocket { position:absolute; top:0; bottom:0; width:26px; z-index:5;
+    background-image:repeating-linear-gradient(180deg, transparent 0 14px, #d8d4c8 14px 20px); }
+  .sprocket.l { left:0; border-right:1px solid #000; }
+  .sprocket.r { right:0; border-left:1px solid #000; }
+
+  #frame {
+    position:absolute; inset:0; padding:24px 52px;
+    background:
+      radial-gradient(140% 100% at 50% 0%, rgba(255,250,235,.06), transparent 60%),
+      var(--paper);
+    color:var(--ink); font-family:'Millennium','SimSun',serif;
+    display:flex; flex-direction:column; gap:12px; overflow:hidden;
+  }
+  #frame .doc-head { display:flex; justify-content:space-between; align-items:baseline; border-bottom:2px solid var(--ink); padding-bottom:8px; }
+  #frame .doc-head .t { font-family:'MillBold'; font-size:21px; letter-spacing:1px; }
+  #frame .doc-head .no { font-family:'Terminal',monospace; font-size:11px; }
+  #frame .doc-body { font-size:14.5px; line-height:1.85; position:relative; }
+  #frame .doc-body .redact { background:#0d0d0d; color:transparent; padding:0 6px; border-radius:1px; }
+  #frame .doc-body .redact.long { display:inline-block; width:150px; }
+  #frame .photo {
+    position:relative; flex:1; border:2px solid var(--ink); overflow:hidden; min-height:0;
+    background:radial-gradient(circle at 52% 38%, #cfcbc0 0 8%, #8f8b82 30%, #3a3a3c 62%, #161616 100%);
+  }
+  #frame .photo .halftone {
+    position:absolute; inset:0; opacity:.5;
+    background-image:radial-gradient(circle, rgba(0,0,0,.75) 1px, transparent 1.4px);
+    background-size:5px 5px;
+  }
+  #frame .photo .tag {
+    position:absolute; left:10px; bottom:10px; font-family:'Terminal',monospace; font-size:11px;
+    background:var(--ink); color:var(--paper); padding:3px 8px; letter-spacing:1px;
+  }
+  #frame .photo .censor {
+    position:absolute; right:0; top:0; bottom:0; width:32%; background:#0d0d0d;
+    display:flex; align-items:center; justify-content:center; writing-mode:vertical-rl;
+    color:#333; font-family:'Terminal',monospace; font-size:12px; letter-spacing:4px;
+  }
+  #frame .doc-foot { font-family:'Terminal',monospace; font-size:10px; color:#444; display:flex; justify-content:space-between; }
+
+  #screen .sweep {
+    position:absolute; left:0; right:0; top:0; height:70px; z-index:6; pointer-events:none;
+    background:linear-gradient(to bottom, transparent, rgba(255,255,255,.14) 45%, rgba(255,255,255,.28) 50%, rgba(255,255,255,.14) 55%, transparent);
+    animation:sweep 5s linear infinite;
+  }
+  @keyframes sweep { 0% { top:-70px; } 100% { top:100%; } }
+
+  /* ---------- 机器底座（转轴 + 计数器 + 旋钮 + 胶片缩略条） ---------- */
+  #console {
+    display:flex; align-items:center; gap:18px; flex-shrink:0;
+    background:linear-gradient(#1b1b1e,#111113); padding:12px 20px;
+    border:1px solid var(--line); box-shadow:0 8px 24px rgba(0,0,0,.6);
+    width:min(76vw, 980px);
+  }
+  .reel {
+    width:56px; height:56px; border-radius:50%; position:relative; flex-shrink:0;
+    background:repeating-radial-gradient(circle at 50% 50%, #2c2c30 0 2px, #111113 2px 5px);
+    border:3px solid var(--steel); box-shadow:inset 0 0 12px #000;
+  }
+  .reel::after { content:''; position:absolute; left:50%; top:50%; width:14px; height:14px;
+    transform:translate(-50%,-50%); border-radius:50%; background:#000; border:2px solid var(--steel); }
+  .reel.spin { animation:spin 6s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .counter {
+    font-family:'Terminal',monospace; font-size:24px; letter-spacing:3px; color:var(--red); flex-shrink:0;
+    background:#080808; padding:8px 12px; border:1px solid #000;
+    box-shadow:inset 0 0 10px #000, 0 0 14px rgba(255,43,43,.35); text-shadow:0 0 8px var(--red);
+  }
+  .knob { width:30px; height:30px; border-radius:50%; background:linear-gradient(145deg,#3a3a3f,#161618);
+    border:1px solid var(--steel); position:relative; flex-shrink:0; }
+  .knob::after { content:''; position:absolute; left:50%; top:50%; width:2px; height:11px;
+    transform:translate(-50%,-50%); background:var(--paper); }
+  .knob::before { content:''; position:absolute; left:50%; top:4px; transform:translateX(-50%);
+    width:7px; height:3px; background:var(--red); }
+
+  /* 中间胶片缩略条 */
+  #strip { flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
+  #strip .cap { display:flex; justify-content:space-between; font-family:'Terminal',monospace; font-size:9px; color:var(--gray); letter-spacing:1px; }
+  #strip .frames { display:flex; gap:8px; }
+  #strip .frm {
+    flex:1; height:40px; position:relative; background:#1a1a1c; border:1px solid #000;
+    background-image:repeating-linear-gradient(90deg, transparent 0 8px, #000 8px 11px); overflow:hidden;
+  }
+  #strip .frm .thumb { position:absolute; inset:4px 7px; background:#26262a; }
+  #strip .frm.active { outline:2px solid var(--red); box-shadow:0 0 0 1px #000, 0 0 14px rgba(255,43,43,.6); }
+  #strip .frm.active .thumb { background:#4a3a3a; }
+
+  /* 底部系统提示行 */
+  #status {
+    height:24px; flex-shrink:0; z-index:9;
+    display:flex; align-items:center; padding:0 16px; gap:14px;
+    background:#0c0c0d; border-top:1px solid var(--line);
+    font-family:'Terminal',monospace; font-size:10px; color:var(--gray); letter-spacing:1px;
+  }
+  #status .cursor { display:inline-block; width:8px; height:13px; background:var(--paper); animation:blink 1s steps(2) infinite; vertical-align:-2px; }
+</style>
+</head>
+<body>
+  <div class="grain"></div><div class="scanlines"></div><div class="vignette"></div>
+
+  <div id="top">
+    <span class="brand">MICROFILM READER <b>MK-II</b></span>
+    <span>MODEL 7700 · ARCHIVES DIVISION</span>
+    <span class="spacer"></span>
+    <span class="stat"><span class="led"></span>PROJECTING</span>
+    <span class="stat">REEL 03/07</span>
+    <span class="stat">FRAME 0142</span>
+    <span class="stat" id="clock">--:--:--</span>
+  </div>
+
+  <div id="stage">
+    <div id="screen">
+      <div class="sprocket l"></div><div class="sprocket r"></div>
+      <div id="frame">
+        <div class="doc-head">
+          <span class="t">案件卷宗 · CASE FILE 7712-B</span>
+          <span class="no">RECORD COPY / 1977.03.14</span>
+        </div>
+        <div class="doc-body">
+          调查对象 <span class="redact long"></span>，代号「<span class="redact">■■■</span>」。最后一次确认出现于北区
+          <span class="redact">███</span> 车站，携带一件<span class="redact long"></span>。上级指示：<br>
+          <i>「此案涉及情报管制局内部，所有相关影像资料须经审查后归档。」</i>
+        </div>
+        <div class="photo">
+          <div class="halftone"></div>
+          <div class="tag">SUBJ. #7712-B · CAM 04</div>
+          <div class="censor">CENSORED</div>
+        </div>
+        <div class="doc-foot"><span>PAGE 1 / 4</span><span>CLASSIFICATION: TOP SECRET</span><span>MICROFILM D-7731</span></div>
+      </div>
+      <div class="sweep"></div>
+    </div>
+
+    <div id="console">
+      <div class="reel spin"></div>
+      <div class="knob"></div>
+      <div class="counter">0142</div>
+      <div id="strip">
+        <div class="cap"><span>REEL 03 — FRAMES 0138–0146</span><span>▶ 旋转左侧转轴翻页</span></div>
+        <div class="frames" id="frames"></div>
+      </div>
+      <div class="knob"></div>
+      <div class="reel"></div>
+    </div>
+  </div>
+
+  <div id="status">
+    <span>SYS://ARCHIVE</span><span>FILM LOADED</span><span>OPTICS OK</span>
+    <span style="margin-left:auto;">READY <span class="cursor"></span></span>
+  </div>
+
+<script>
+  const frames = document.getElementById('frames');
+  for (let i = 138; i <= 146; i++) {
+    const f = document.createElement('div');
+    f.className = 'frm' + (i === 142 ? ' active' : '');
+    f.innerHTML = `<div class="thumb"></div>`;
+    frames.appendChild(f);
+  }
+  function tick(){ const d=new Date(); const p=n=>String(n).padStart(2,'0');
+    document.getElementById('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+  setInterval(tick,1000); tick();
+</script>
+</body>
+</html>

@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情报管制局 · 档案卷宗台</title>
+<style>
+  @font-face { font-family:'Terminal';   src:url('../fonts/Terminal.ttf'); }
+  @font-face { font-family:'Millennium'; src:url('../fonts/Millennium.ttf'); }
+  @font-face { font-family:'MillBold';   src:url('../fonts/Millennium-Bold.ttf'); }
+  @font-face { font-family:'MSSans';     src:url('../fonts/MSSansSerif.ttf'); }
+
+  :root {
+    --bg:#0b0b0c; --line:#2a2a2d; --steel:#55555b;
+    --paper:#e6e0cf; --paper2:#dcd4bf; --ink:#1c1a16; --faint:#6d6d72;
+    --red:#ff2b2b; --magenta:#ff2b78;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    background:var(--bg); color:var(--paper); font-family:'MSSans','Courier New',monospace;
+    overflow:hidden; user-select:none; -webkit-user-select:none;
+    display:flex; flex-direction:column;
+  }
+
+  /* ===== 全屏氛围层 ===== */
+  .grain {
+    position:fixed; inset:0; z-index:900; pointer-events:none; opacity:.17; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scanlines {
+    position:fixed; inset:0; z-index:901; pointer-events:none; opacity:.4;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.24) 0 1px, transparent 1px 3px);
+  }
+  .vignette {
+    position:fixed; inset:0; z-index:902; pointer-events:none;
+    background:radial-gradient(130% 100% at 50% 45%, transparent 55%, rgba(0,0,0,.62) 100%);
+  }
+
+  /* ===== 故障 / 信号中断闪屏 ===== */
+  #flash {
+    position:fixed; inset:0; z-index:958; pointer-events:none; opacity:0;
+    background:radial-gradient(circle at 50% 50%, rgba(255,43,120,.0), rgba(255,43,43,.35));
+  }
+  #flash.on { animation:redFlash .5s ease-out; }
+  @keyframes redFlash { 0%{opacity:.5} 100%{opacity:0} }
+  #glitch { position:fixed; inset:0; z-index:960; pointer-events:none; opacity:0; }
+  #glitch.show { animation:glitchFlick .62s steps(1) forwards; }
+  #glitch .gbar { position:absolute; left:0; right:0; height:7px; background:#fff; mix-blend-mode:difference; }
+  @keyframes glitchFlick {
+    0%   { opacity:0; transform:none; }
+    6%   { opacity:1; transform:translateX(-7px) skewX(-4deg); }
+    12%  { opacity:.35; transform:translateX(5px); }
+    20%  { opacity:1; transform:translateX(-2px) skewX(3deg); }
+    34%  { opacity:.6; transform:translateX(0); }
+    48%  { opacity:1; transform:translateX(3px); }
+    62%  { opacity:0; transform:none; }
+    100% { opacity:0; transform:none; }
+  }
+
+  /* ===== 顶栏 ===== */
+  #top {
+    height:44px; flex-shrink:0; z-index:10; display:flex; align-items:center; padding:0 20px; gap:18px;
+    background:linear-gradient(#1b1b1e,#121214); border-bottom:1px solid var(--line);
+    font-family:'Terminal','Courier New',monospace; font-size:12px; letter-spacing:1px; color:var(--faint);
+  }
+  #top .brand { color:var(--paper); letter-spacing:2px; }
+  #top .brand b { color:var(--red); }
+  #top .spacer { flex:1; }
+  #top .tabs { display:flex; gap:4px; }
+  #top .tabs span { padding:4px 12px; border:1px solid var(--line); color:var(--faint); cursor:pointer; font-size:11px; }
+  #top .tabs span.on { color:var(--paper); border-color:var(--steel); background:#1c1c1f; }
+  #top .clear { padding:2px 10px; border:1px solid var(--red); color:var(--red); letter-spacing:2px; font-size:10px; }
+
+  /* ===== 主体 ===== */
+  #main { flex:1; display:flex; min-height:0; }
+
+  /* 左侧档案索引 */
+  #index { width:224px; flex-shrink:0; border-right:1px solid var(--line); background:linear-gradient(#151517,#101011); display:flex; flex-direction:column; }
+  #index .head { padding:14px 16px 10px; font-family:'Terminal',monospace; font-size:10px; color:var(--faint); letter-spacing:2px; border-bottom:1px solid var(--line); }
+  #index .item {
+    padding:12px 16px; border-bottom:1px solid #1d1d20; cursor:pointer; position:relative;
+    display:flex; flex-direction:column; gap:4px; transition:background .12s;
+  }
+  #index .item:hover { background:#18181b; }
+  #index .item.active { background:#1c1c1f; }
+  #index .item.active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--red); box-shadow:0 0 10px var(--red); }
+  #index .item .no { font-family:'Terminal',monospace; font-size:12px; color:var(--paper); letter-spacing:1px; }
+  #index .item .sub { font-family:'Millennium','SimSun',serif; font-size:12px; color:var(--faint); }
+  #index .item .badge { font-family:'Terminal',monospace; font-size:8px; letter-spacing:1px; }
+  #index .item .badge.hot { color:var(--red); }
+  #index .item .badge.arch { color:#4a4a4e; }
+  #index .item.locked { cursor:not-allowed; opacity:.55; }
+
+  /* 中央舞台 */
+  #stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:20px; position:relative; min-width:0; }
+  #stage::before { content:''; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(70% 60% at 50% 46%, rgba(255,248,230,.05), transparent 60%); }
+
+  /* 切换动画容器 */
+  #deckWrap { position:relative; }
+  #deckWrap.out { animation:slideOut .4s ease-in forwards; }
+  #deckWrap.in  { animation:slideIn .52s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes slideOut { to { transform:translateX(112%) rotate(2.5deg); opacity:0; } }
+  @keyframes slideIn  { from { transform:translateX(-112%) rotate(-2deg); opacity:0; } to { transform:none; opacity:1; } }
+
+  /* 翻页 3D 容器（单页） */
+  #deck { position:relative; width:min(56vw, 760px); height:min(66vh, 600px); perspective:1500px; }
+
+  /* 叠在下方的纸页边缘（提示后面还有页） */
+  #peek { position:absolute; inset:0; z-index:0; }
+  .peek-i { position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:linear-gradient(178deg, #d8d0bc, #cfc5ad); border-right:1px solid #9a8f74; border-bottom:1px solid #9a8f74;
+    box-shadow:0 1px 2px rgba(0,0,0,.25); }
+
+  /* 翻页时揭示的目标页（下一/上一页）—— 与正面同纸色，避免翻页瞬间露出深色底 */
+  #under { position:absolute; inset:0; z-index:1; overflow:hidden; background:linear-gradient(176deg, var(--paper), var(--paper2)); }
+
+  /* 顶层当前纸张（可翻转，绕左缘） */
+  #sheet { position:absolute; inset:0; z-index:2; transform-origin:left center; transform-style:preserve-3d;
+    transition:transform .8s ease-in-out; will-change:transform; }
+
+  .face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden;
+    background:linear-gradient(176deg, var(--paper), var(--paper2)); }
+  #back { transform:rotateY(180deg); }
+
+  /* 翻页时的移动阴影 */
+  #flipShadow { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:0; }
+  #deck.turning #flipShadow { animation:flipShade .8s ease-in-out; }
+  @keyframes flipShade { 0%{opacity:0} 40%{opacity:.38} 100%{opacity:0} }
+  #flipShadow::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg, rgba(0,0,0,.55), transparent 65%); }
+  #flipShadow.prev::before { background:linear-gradient(270deg, rgba(0,0,0,.55), transparent 65%); }
+
+  /* ===== 纸张内容与做旧 ===== */
+  .page-content { position:relative; z-index:1; padding:34px 42px 28px; height:100%; display:flex; flex-direction:column; }
+  .letterhead { text-align:center; margin-bottom:16px; }
+  .letterhead .b1 { font-family:'MillBold','SimSun',serif; font-size:15px; letter-spacing:6px; color:#2a2a24; }
+  .letterhead .b2 { font-family:'Terminal',monospace; font-size:8px; letter-spacing:3px; color:#7a766a; margin-top:3px; }
+
+  .doc-head { border-bottom:2px solid var(--ink); padding-bottom:9px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:baseline; }
+  .doc-head .t { font-family:'MillBold','SimSun',serif; font-size:20px; letter-spacing:1px; color:var(--ink); }
+  .doc-head .meta { font-family:'Terminal',monospace; font-size:10px; color:#5c574a; letter-spacing:1px; }
+
+  .doc-body { flex:1; font-family:'Millennium','SimSun',serif; font-size:15px; line-height:2.02; color:var(--ink); text-align:justify; overflow:hidden; }
+  .doc-body p { text-indent:2em; margin-bottom:10px; }
+  .doc-body .redact { background:#111; color:transparent; padding:0 6px; border-radius:1px; }
+  .doc-body .redact.long { display:inline-block; width:150px; }
+  .doc-body .handwrite { font-style:italic; color:#6e2a2a; }
+  .doc-body .ln { display:block; font-family:'Terminal',monospace; font-size:12px; letter-spacing:1px; color:#3a362c; margin:4px 0; text-indent:0; }
+
+  .photos { display:flex; gap:14px; margin:14px 0 6px; flex-shrink:0; }
+  .ph { flex:1; height:118px; position:relative; border:1px solid var(--ink); overflow:hidden;
+    background:radial-gradient(circle at 50% 40%, #c4bfae 0 10%, #807c70 36%, #33322e 70%, #131210 100%); }
+  .ph .ht { position:absolute; inset:0; opacity:.45; background-image:radial-gradient(circle, rgba(0,0,0,.72) 1px, transparent 1.4px); background-size:4px 4px; }
+  .ph .bar { position:absolute; background:#0d0d0d; }
+  .ph .cap { position:absolute; left:6px; bottom:6px; font-family:'Terminal',monospace; font-size:9px; color:var(--paper); background:rgba(0,0,0,.65); padding:2px 6px; letter-spacing:1px; }
+
+  .doc-foot { margin-top:10px; padding-top:8px; border-top:1px dashed rgba(0,0,0,.25); display:flex; justify-content:space-between; font-family:'Terminal',monospace; font-size:9px; color:#5c574a; letter-spacing:1px; flex-shrink:0; }
+
+  /* 橡皮戳 */
+  .stamp { position:absolute; right:40px; top:128px; z-index:3; transform:rotate(-12deg);
+    font-family:'MillBold','SimSun',serif; font-size:26px; letter-spacing:4px; color:var(--red);
+    border:3px solid var(--red); padding:4px 12px; opacity:.8; mix-blend-mode:multiply; }
+  .stamp.small { right:auto; left:44px; top:auto; bottom:64px; font-size:16px; letter-spacing:2px; transform:rotate(8deg); color:var(--magenta); border-color:var(--magenta); }
+  .stamp.s3 { right:auto; left:50%; top:auto; bottom:120px; font-size:15px; transform:rotate(-4deg); color:#7a2a2a; border-color:#7a2a2a; }
+
+  /* 页边手写批注 */
+  .margin-note { position:absolute; right:-16px; top:36%; z-index:3; font-family:'Millennium',serif; font-size:12px; color:#7a3a3a; writing-mode:vertical-rl; letter-spacing:2px; transform:rotate(2deg); white-space:nowrap; }
+
+  /* ===== 做旧层 ===== */
+  .aging { position:absolute; inset:0; z-index:4; pointer-events:none; }
+  .aging .worn { position:absolute; inset:0; box-shadow:inset 0 0 46px rgba(96,74,42,.30), inset 0 0 10px rgba(70,52,28,.22); }
+  .aging .fox { position:absolute; inset:0; mix-blend-mode:multiply; opacity:.55;
+    background-image:
+      radial-gradient(circle at 18% 22%, rgba(130,96,52,.20) 0 5px, transparent 7px),
+      radial-gradient(circle at 71% 14%, rgba(120,88,46,.16) 0 4px, transparent 6px),
+      radial-gradient(circle at 82% 68%, rgba(134,100,56,.18) 0 7px, transparent 9px),
+      radial-gradient(circle at 28% 78%, rgba(124,92,50,.15) 0 5px, transparent 7px),
+      radial-gradient(circle at 56% 46%, rgba(110,80,42,.12) 0 4px, transparent 6px); }
+  .aging .crease { position:absolute; inset:0; mix-blend-mode:multiply; opacity:.5;
+    background:linear-gradient(90deg, transparent 49.6%, rgba(0,0,0,.10) 50%, transparent 50.4%); }
+  .aging .crease.h { background:linear-gradient(0deg, transparent 60%, rgba(0,0,0,.06) 60.4%, transparent 60.8%); }
+  .aging .tape { position:absolute; width:86px; height:30px; background:rgba(205,195,160,.4); transform:rotate(-4deg);
+    box-shadow:0 0 3px rgba(0,0,0,.12), inset 0 0 4px rgba(255,255,255,.25); }
+  .aging .smudge { position:absolute; width:120px; height:90px; border-radius:50%; mix-blend-mode:multiply; opacity:.5;
+    background:radial-gradient(ellipse at center, rgba(90,80,60,.14), transparent 70%); }
+
+  /* 纸张背面（翻页可见） */
+  #back .backface { position:absolute; inset:0; padding:26px; display:flex; flex-direction:column; gap:8px; opacity:.5; }
+  #back .backface i { display:block; height:10px; background:rgba(0,0,0,.08); border-radius:2px; }
+  #back .backface i:nth-child(1){width:82%} #back .backface i:nth-child(2){width:70%} #back .backface i:nth-child(3){width:76%} #back .backface i:nth-child(4){width:60%} #back .backface i:nth-child(5){width:74%}
+
+  /* ===== 翻页控件 ===== */
+  #controls { display:flex; align-items:center; gap:16px; font-family:'Terminal',monospace; letter-spacing:1px; }
+  #controls .navbtn {
+    width:44px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    background:linear-gradient(#1b1b1e,#111113); border:1px solid var(--line); color:var(--paper); font-size:13px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  #controls .navbtn:hover { border-color:var(--steel); }
+  #controls .navbtn:active { transform:translateY(1px); }
+  #controls .navbtn.disabled { opacity:.3; cursor:default; }
+  #controls .page-ind { min-width:96px; text-align:center; }
+  #controls .page-ind .big { font-size:20px; color:var(--paper); }
+  #controls .page-ind .sub { font-size:9px; color:var(--faint); letter-spacing:2px; }
+
+  /* ===== 底部证据条 ===== */
+  #exhibit { height:78px; flex-shrink:0; z-index:9; background:linear-gradient(#141416,#0d0d0e); border-top:1px solid var(--line); display:flex; align-items:center; padding:0 16px; gap:12px; }
+  #exhibit .lbl { font-family:'Terminal',monospace; font-size:10px; color:var(--faint); letter-spacing:2px; writing-mode:vertical-rl; transform:rotate(180deg); flex-shrink:0; }
+  #exhibit .ev { width:54px; height:54px; border:1px solid #000; background:#1c1c1f; position:relative; overflow:hidden; cursor:pointer; flex-shrink:0; }
+  #exhibit .ev::after { content:''; position:absolute; inset:5px; background:#2a2a2e; }
+  #exhibit .ev.on { outline:2px solid var(--red); box-shadow:0 0 12px rgba(255,43,43,.55); }
+  #exhibit .ev.on::after { background:#4a3a3a; }
+  #exhibit .ev .n { position:absolute; bottom:0; left:0; right:0; text-align:center; font-family:'Terminal',monospace; font-size:8px; color:var(--paper); background:rgba(0,0,0,.6); z-index:1; }
+  #exhibit .hint { margin-left:auto; font-family:'Terminal',monospace; font-size:9px; color:var(--faint); letter-spacing:1px; }
+  #exhibit .hint b { color:var(--red); }
+</style>
+</head>
+<body>
+  <div class="grain"></div><div class="scanlines"></div><div class="vignette"></div>
+  <div id="flash"></div>
+  <div id="glitch">
+    <div class="gbar" style="top:18%;"></div>
+    <div class="gbar" style="top:34%;height:11px;"></div>
+    <div class="gbar" style="top:55%;"></div>
+    <div class="gbar" style="top:72%;height:13px;"></div>
+  </div>
+
+  <div id="top">
+    <span class="brand">情报管制局 <b>·</b> 档案处</span>
+    <span>MINISTRY OF INFORMATION — ARCHIVES</span>
+    <span class="spacer"></span>
+    <div class="tabs"><span class="on">档案</span><span>索引</span><span>传输</span></div>
+    <span class="clear">TOP SECRET</span>
+    <span id="clock" style="letter-spacing:2px;color:var(--faint);">--:--:--</span>
+  </div>
+
+  <div id="main">
+    <div id="index">
+      <div class="head">CASE INDEX · 档案索引</div>
+      <div id="indexList"></div>
+    </div>
+
+    <div id="stage">
+      <div id="deckWrap">
+        <div id="deck">
+          <div id="peek">
+            <div class="peek-i" style="left:-3px;right:3px;bottom:-3px;"></div>
+            <div class="peek-i" style="left:-6px;right:6px;bottom:-6px;"></div>
+            <div class="peek-i" style="left:-9px;right:9px;bottom:-9px;"></div>
+          </div>
+          <div id="under"></div>
+          <div id="sheet">
+            <div class="face" id="front"></div>
+            <div class="face" id="back"><div class="backface"><i></i><i></i><i></i><i></i><i></i></div></div>
+          </div>
+          <div id="flipShadow"></div>
+        </div>
+      </div>
+
+      <div id="controls">
+        <div class="navbtn" id="prevBtn" title="上一页">◀</div>
+        <div class="page-ind"><div class="big" id="counter">1 / 3</div><div class="sub" id="pageLabel">PAGE 01 / 03</div></div>
+        <div class="navbtn" id="nextBtn" title="下一页">▶</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="exhibit">
+    <span class="lbl">EXHIBITS</span>
+    <div id="exhibitList" style="display:flex;gap:12px;"></div>
+    <span class="hint">点击左侧档案切换卷宗 &nbsp;·&nbsp; <b>◀ ▶</b> 或 ← → 翻页</span>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = id => document.getElementById(id);
+
+/* ================= 卷宗数据 ================= */
+const CASES = [
+  {
+    no:'7712-B', subj:'北区车站失踪案', status:'调查中', hot:true,
+    exhibits:['E-01','E-02','E-03','E-04','E-05','E-06'],
+    pages:[
+      {
+        meta:'1977.03.14 · 卷 1',
+        stamps:[{t:'封存',c:''},{t:'已审查',c:'small'}],
+        note:'这里被涂改过 —— 谁干的？',
+        body:`<p>调查对象 <span class="redact long"></span>，代号「<span class="redact">■■■</span>」，男性，约 40 岁，曾任情报管制局<span class="redact">███</span>处档案审查员。最后一次确认出现于北区 <span class="redact">███</span> 车站，随身携带一件<span class="redact long"></span>。</p>
+        <p>上级指示：<i>「此案涉及本局内部，所有相关影像与书面资料须经审查后归档，未经授权不得调阅。」</i></p>`,
+        photos:[{cap:'SUBJ. #7712-B', bar:'v-l'},{cap:'EXHIBIT 02 · CAM 04', bar:'h-t'},{cap:'EXHIBIT 03', bar:'h-b'}]
+      },
+      {
+        meta:'1977.03.14 · 卷 2',
+        stamps:[{t:'目击',c:'s3'}],
+        note:'40 秒 —— 恰好是那班车进站的时间。',
+        body:`<p>目击证词摘录（已做遮蔽处理）：</p>
+        <p>「大约 23:40，我看到他上了一班往<span class="redact">██</span>方向的列车……手里提着一个<span class="redact">███</span>。之后列车驶离，再没见过他。」</p>
+        <p>证人口述中的关键时间点与站台监控记录<span class="redact long"></span>不符。监控带在该时段出现约 <span class="redact">40</span> 秒的空白。</p>`,
+        photos:[{cap:'EXHIBIT 04 · PLATFORM', bar:'v-r'},{cap:'EXHIBIT 05 · TICKET', bar:'h-b'}]
+      },
+      {
+        meta:'1977.03.15 · 卷 3',
+        stamps:[{t:'待复核',c:''}],
+        note:'谁删的？权限日志里没有记录。',
+        body:`<p>初步分析：监控录像的 40 秒空白并非机械故障。画面前后帧的时间码连续，但内容被<span class="redact">███</span>替换，属于人为<span class="redact">删除</span>。</p>
+        <p class="ln">· 关联卷宗 7708-A 审查员失联案</p>
+        <p class="ln">· 关联卷宗 7681-C 微缩胶片遗失清单</p>
+        <p>结论：<span class="redact long"></span></p>`,
+        photos:[{cap:'EXHIBIT 06 · TIMECODE', bar:'h-t'}]
+      }
+    ]
+  },
+  {
+    no:'7708-A', subj:'审查员失联记录', status:'已归档', hot:false,
+    exhibits:['E-01','E-02','E-03','E-04'],
+    pages:[
+      {
+        meta:'1977.02.28 · 卷 1',
+        stamps:[{t:'已归档',c:''}],
+        note:'他的名字被整页删掉了。',
+        body:`<p>失联人员：<span class="redact long"></span>，档案处夜班审查员，工号 <span class="redact">C-███</span>。自 1977.02.28 起未到岗，宿舍物品<span class="redact">完整</span>，无离城记录。</p>
+        <p>发现其最后登记的借阅胶片编号为 <span class="redact">D-7731</span>。</p>`,
+        photos:[{cap:'SUBJ. #7708-A', bar:'v-l'},{cap:'DORM · 2308', bar:'h-b'}]
+      },
+      {
+        meta:'1977.03.02 · 卷 2',
+        stamps:[{t:'内查',c:'s3'}],
+        body:`<p>最后工作日志（1977.02.27 夜班）：</p>
+        <p>「23:50 收到一份标注『加急』的微缩胶片，编号 <span class="redact">D-7731</span>。内容……<span class="redact long"></span>。我把它归档了。」</p>
+        <p>次日胶片在原位，但编号已被<span class="redact">涂改</span>。</p>`,
+        photos:[{cap:'EXHIBIT 02 · LOG', bar:'h-t'},{cap:'EXHIBIT 03 · FILM', bar:'v-r'}]
+      },
+      {
+        meta:'1977.03.10 · 卷 3',
+        stamps:[{t:'已结案',c:''}],
+        note:'不要查下去。',
+        body:`<p>内部调查结论：无异常，按<span class="redact">离岗</span>处理。</p>
+        <p>（本页末尾有两行被黑色墨水划去，隐约可见「<span class="handwrite">不要查下去</span>」。）</p>`,
+        photos:[]
+      }
+    ]
+  },
+  {
+    no:'7699-D', subj:'匿名举报：档案篡改', status:'已归档', hot:false,
+    exhibits:['E-01','E-02'],
+    pages:[
+      {
+        meta:'1976.12.02 · 卷 1',
+        stamps:[{t:'誊抄',c:'s3'}],
+        body:`<p>举报内容（原件已销毁，此为誊抄件）：</p>
+        <p>「有人半夜进入档案室，动了 <span class="redact">7712-B</span> 的胶片。编号 D-7731 的胶片被<span class="redact">替换</span>。请查。」</p>
+        <p>落款：<span class="redact">一个知情人</span></p>`,
+        photos:[{cap:'EXHIBIT 01 · LETTER', bar:'h-b'}]
+      },
+      {
+        meta:'1976.12.09 · 卷 2',
+        stamps:[{t:'待复核',c:''}],
+        note:'门禁日志也有人动过。',
+        body:`<p>初步核查：档案室门禁日志在该时段无异常记录。胶片 D-7731 物理状态<span class="redact">完好</span>，但画面较目录登记<span class="redact">少 40 秒</span>。</p>
+        <p>处理建议：<span class="redact long"></span></p>`,
+        photos:[]
+      }
+    ]
+  }
+];
+
+/* 已归档（不可调阅）的占位条目 */
+const LOCKED = [
+  { no:'7681-C', subj:'微缩胶片遗失清单' },
+  { no:'7655-F', subj:'边境信号截获' }
+];
+
+/* ================= 做旧层 ================= */
+function wearHTML(i){
+  const tapeL = 30 + (i*37)%40;
+  const smL = 58 + (i*23)%28, smT = 20 + (i*17)%50;
+  return `
+    <div class="aging">
+      <div class="worn"></div>
+      <div class="fox"></div>
+      <div class="crease"></div>
+      ${i%2 ? '<div class="crease h"></div>' : ''}
+      <div class="tape" style="left:${tapeL}%;top:-8px;"></div>
+      <div class="smudge" style="left:${smL}%;top:${smT}%;"></div>
+    </div>`;
+}
+
+function photoHTML(p){
+  const bar = p.bar || 'v-l';
+  let b = '';
+  if(bar==='v-l') b = '<div class="bar" style="left:0;top:0;bottom:0;width:42%;"></div>';
+  if(bar==='v-r') b = '<div class="bar" style="right:0;top:0;bottom:0;width:38%;"></div>';
+  if(bar==='h-t') b = '<div class="bar" style="left:0;top:0;height:52%;width:100%;"></div>';
+  if(bar==='h-b') b = '<div class="bar" style="left:0;bottom:0;height:34%;width:100%;"></div>';
+  return `<div class="ph"><div class="ht"></div>${b}<div class="cap">${p.cap}</div></div>`;
+}
+
+function pageHTML(c, p, pi, total){
+  const stamps = (p.stamps||[]).map(s=>`<div class="stamp ${s.c}">${s.t}</div>`).join('');
+  const photos = (p.photos&&p.photos.length) ? `<div class="photos">${p.photos.map(photoHTML).join('')}</div>` : '';
+  const note = p.note ? `<div class="margin-note">${p.note}</div>` : '';
+  return `
+    <div class="page-content">
+      <div class="letterhead">
+        <div class="b1">情报管制局 · 档案处</div>
+        <div class="b2">MINISTRY OF INFORMATION — ARCHIVES DIVISION</div>
+      </div>
+      <div class="doc-head">
+        <span class="t">案件卷宗 · CASE FILE ${c.no}</span>
+        <span class="meta">${p.meta}</span>
+      </div>
+      <div class="doc-body">${p.body}</div>
+      ${photos}
+      <div class="doc-foot"><span>PAGE ${pi+1} / ${total}</span><span>CLASSIFICATION: TOP SECRET</span><span>REF: D-7731</span></div>
+      ${stamps}
+      ${note}
+    </div>`;
+}
+
+/* ================= 状态与渲染 ================= */
+let curCase = 0, curPage = 0, flipping = false;
+const deck = el('deck'), deckWrap = el('deckWrap');
+
+function current(){ return CASES[curCase]; }
+
+function renderIndex(){
+  const list = el('indexList');
+  let html = '';
+  CASES.forEach((c, i) => {
+    html += `<div class="item ${i===curCase?'active':''}" data-i="${i}">
+      <span class="no">${c.no}</span><span class="sub">${c.subj}</span>
+      <span class="badge ${c.hot?'hot':'arch'}">${c.hot?'● '+c.status:'已归档'}</span></div>`;
+  });
+  LOCKED.forEach(l => {
+    html += `<div class="item locked"><span class="no">${l.no}</span><span class="sub">${l.subj}</span><span class="badge arch">🔒 无权调阅</span></div>`;
+  });
+  list.innerHTML = html;
+  list.querySelectorAll('.item:not(.locked)').forEach(node => {
+    node.addEventListener('click', () => switchCase(+node.dataset.i));
+  });
+  list.querySelectorAll('.item.locked').forEach(node => {
+    node.addEventListener('click', denyAccess);
+  });
+}
+
+function renderExhibits(){
+  const box = el('exhibitList');
+  const ev = current().exhibits;
+  box.innerHTML = ev.map((e,i)=>`<div class="ev ${i===0?'on':''}" data-i="${i}"><span class="n">${e}</span></div>`).join('');
+  box.querySelectorAll('.ev').forEach(node => {
+    node.addEventListener('click', () => {
+      box.querySelectorAll('.ev').forEach(x=>x.classList.remove('on'));
+      node.classList.add('on');
+    });
+  });
+}
+
+function renderDeck(){
+  const c = current(), total = c.pages.length;
+  // 顶层纸张 = 当前页
+  el('front').innerHTML = pageHTML(c, c.pages[curPage], curPage, total) + wearHTML(curPage);
+
+  const p2 = n2 => String(n2).padStart(2,'0');
+  el('counter').textContent = `${curPage+1} / ${total}`;
+  el('pageLabel').textContent = `PAGE ${p2(curPage+1)} / ${p2(total)}`;
+
+  // 复位纸张（无动画，回到正面朝上），清空揭示层，恢复层级
+  const sheet = el('sheet');
+  sheet.style.transition = 'none';
+  sheet.style.transformOrigin = 'left center';
+  sheet.style.transform = 'rotateY(0deg)';
+  sheet.style.zIndex = '2';
+  el('under').innerHTML = '';
+  el('under').style.zIndex = '1';
+  el('flipShadow').classList.remove('prev');
+  void sheet.offsetWidth;
+  sheet.style.transition = '';
+
+  el('prevBtn').classList.toggle('disabled', curPage===0);
+  el('nextBtn').classList.toggle('disabled', curPage===total-1);
+}
+
+/* ================= 翻页 ================= */
+function flip(dir){
+  if(flipping) return;
+  const c = current(), total = c.pages.length;
+  const target = curPage + dir;
+  if(target < 0 || target >= total) return;
+
+  flipping = true;
+  const sheet = el('sheet');
+  const under = el('under');
+  const DUR = 800;                 // 整圈 360° 翻页时长
+  deck.classList.add('turning');
+  el('flipShadow').classList.toggle('prev', dir < 0);
+  sheet.style.transformOrigin = 'left center';
+
+  if(dir > 0){
+    // 正向：当前页在上，绕左缘整圈 360°，翻到下一页的下面
+    el('front').innerHTML = pageHTML(c, c.pages[curPage], curPage, total) + wearHTML(curPage);
+    under.innerHTML = pageHTML(c, c.pages[target], target, total) + wearHTML(target);
+    sheet.style.zIndex = '2';
+    under.style.zIndex = '1';
+    sheet.style.transition = 'none';
+    sheet.style.transform = 'rotateY(0deg)';
+    void sheet.offsetWidth;
+    sheet.style.transition = '';
+    sheet.style.transform = 'rotateY(-360deg)';
+    // 半圈（180°，纸张转到左半边、与下一页不重叠）时降到下一页下面
+    setTimeout(() => { sheet.style.zIndex = '1'; under.style.zIndex = '2'; }, Math.round(DUR*0.5));
+  } else {
+    // 回翻：上一页从下面绕左缘整圈 360° 翻回正面
+    el('front').innerHTML = pageHTML(c, c.pages[target], target, total) + wearHTML(target);
+    under.innerHTML = pageHTML(c, c.pages[curPage], curPage, total) + wearHTML(curPage);
+    sheet.style.zIndex = '1';
+    under.style.zIndex = '2';
+    sheet.style.transition = 'none';
+    sheet.style.transform = 'rotateY(0deg)';
+    void sheet.offsetWidth;
+    sheet.style.transition = '';
+    sheet.style.transform = 'rotateY(360deg)';
+    // 半圈时升到上面
+    setTimeout(() => { sheet.style.zIndex = '2'; under.style.zIndex = '1'; }, Math.round(DUR*0.5));
+  }
+
+  const done = () => {
+    if(!flipping) return;
+    flipping = false;
+    deck.classList.remove('turning');
+    curPage = target;
+    renderDeck();
+  };
+  sheet.addEventListener('transitionend', done, { once:true });
+  setTimeout(done, DUR + 60);
+}
+
+/* ================= 档案切换（机械滑动 + 故障闪屏） ================= */
+function switchCase(i){
+  if(i === curCase || flipping) return;
+  deckWrap.classList.add('out');
+  setTimeout(() => {
+    curCase = i; curPage = 0;
+    renderIndex(); renderExhibits(); renderDeck();
+    deckWrap.classList.remove('out');
+    deckWrap.classList.add('in');
+    setTimeout(() => deckWrap.classList.remove('in'), 560);
+  }, 400);
+}
+
+function denyAccess(){
+  triggerGlitch();
+  el('flash').classList.remove('on'); void el('flash').offsetWidth; el('flash').classList.add('on');
+}
+
+function triggerGlitch(){
+  const g = el('glitch');
+  g.classList.remove('show'); void g.offsetWidth; g.classList.add('show');
+  el('flash').classList.remove('on'); void el('flash').offsetWidth; el('flash').classList.add('on');
+  setTimeout(() => g.classList.remove('show'), 640);
+}
+
+/* ================= 控件 ================= */
+el('prevBtn').addEventListener('click', () => flip(-1));
+el('nextBtn').addEventListener('click', () => flip(1));
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowRight') flip(1);
+  else if(e.key === 'ArrowLeft') flip(-1);
+  else if(e.key === 'ArrowDown'){ if(curCase < CASES.length-1) switchCase(curCase+1); }
+  else if(e.key === 'ArrowUp'){ if(curCase > 0) switchCase(curCase-1); }
+});
+
+/* 时钟 */
+function tick(){ const d=new Date(); const p=n=>String(n).padStart(2,'0');
+  el('clock').textContent = p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+setInterval(tick,1000); tick();
+
+/* 启动 */
+renderIndex(); renderExhibits(); renderDeck();
+</script>
+</body>
+</html>
